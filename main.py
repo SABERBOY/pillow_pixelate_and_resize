@@ -1,6 +1,30 @@
 import sys
 import json
 from PIL import Image
+import numpy as np
+
+
+def apply_dithering(image):
+    # Convert image to numpy array
+    img_array = np.array(image, dtype=float)
+    height, width = img_array.shape[:2]
+
+    for y in range(height - 1):
+        for x in range(width - 1):
+            old_pixel = img_array[y, x].copy()
+            new_pixel = np.round(old_pixel / 255.0) * 255
+            img_array[y, x] = new_pixel
+            error = old_pixel - new_pixel
+
+            # Distribute the error to neighboring pixels
+            img_array[y, x + 1] += error * 7 / 16
+            img_array[y + 1, x - 1] += error * 3 / 16
+            img_array[y + 1, x] += error * 5 / 16
+            img_array[y + 1, x + 1] += error * 1 / 16
+
+    # Clip values to ensure they're in the valid range
+    img_array = np.clip(img_array, 0, 255).astype(np.uint8)
+    return Image.fromarray(img_array)
 
 
 def pixelate_and_resize(input_file_path, pixel_size, scale_factor):
@@ -21,12 +45,20 @@ def pixelate_and_resize(input_file_path, pixel_size, scale_factor):
         )
         pixelated = pixelated.resize((new_width, new_height), Image.NEAREST)
 
-        # Save the pixelated image
+        # Apply dithering
+        r, g, b, a = pixelated.split()
+        r = apply_dithering(r)
+        g = apply_dithering(g)
+        b = apply_dithering(b)
+        pixelated = Image.merge("RGBA", (r, g, b, a))
+
+        # Save the pixelated and dithered image
         output_image_path = (
-            input_file_path.rsplit(".", 1)[0] + f"_pixelated_{scale_factor}.png"
+            input_file_path.rsplit(".", 1)[0]
+            + f"_pixelated_dithered_{scale_factor}.png"
         )
         pixelated.save(output_image_path)
-        print(f"Pixelated and resized image saved as {output_image_path}")
+        print(f"Pixelated, dithered, and resized image saved as {output_image_path}")
 
     return pixelated, output_image_path
 
@@ -38,8 +70,7 @@ def get_pixel_colors(image):
         for x in range(width):
             r, g, b, a = image.getpixel((x, y))
             # Ignore fully transparent pixels
-            # if a > 0:
-            if r != 1 and g != 1 and b != 1:
+            if a > 0:
                 color_data.append({"x": x, "y": y, "color": [r, g, b, a]})
 
     return color_data
