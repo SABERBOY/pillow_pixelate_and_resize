@@ -59,6 +59,30 @@ def merge_pixel_blocks(image, block_size):
     return color_data
 
 
+def get_pixel_colors(image):
+    width, height = image.size
+    color_data = []
+    for y in range(height):
+        for x in range(width):
+            r, g, b, a = image.getpixel((x, y))
+            # Ignore fully transparent pixels
+            if a > 0 and r != 1 and g != 1 and b != 1:
+                color_data.append(
+                    {
+                        "x": x,
+                        "y": y,
+                        "c": [
+                            float("{:.2f}".format(r / 255)),
+                            float("{:.2f}".format(g / 255)),
+                            float("{:.2f}".format(b / 255)),
+                            float("{:.2f}".format(a / 255)),
+                        ],
+                    }
+                )
+
+    return color_data
+
+
 def save_colors_as_json(color_data, output_path):
     with open(output_path, "w") as f:
         json.dump(color_data, f)
@@ -70,14 +94,14 @@ if __name__ == "__main__":
     #     print("Usage: python script.py <input_image_path> <pixel_size> <scale_factor>")
     #     sys.exit(1)
 
-    input_file_path = "./girl.jpg"
+    input_file_path = "./1.png"
     pixel_size = 10
     scale_factor = 0.3
 
     pixelated_image, output_image_path = pixelate_and_resize(
         input_file_path, pixel_size, scale_factor
     )
-    color_data = merge_pixel_blocks(pixelated_image, pixel_size)
+    color_data = get_pixel_colors(pixelated_image)
 
-    output_json_path = output_image_path.rsplit(".", 1)[0] + "_merged_colors.json"
+    output_json_path = output_image_path.rsplit(".", 1)[0] + "_colors.json"
     save_colors_as_json(color_data, output_json_path)
